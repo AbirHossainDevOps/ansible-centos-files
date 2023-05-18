@@ -1,0 +1,61 @@
+---
+
+- name: Setup Ubuntu
+  hosts: clients-u
+  become: true
+  vars:
+    server: 192.168.20.136
+    package_list:
+      - nginx
+      - mysql-server
+      - php7.4-mysql
+      - php7.4-curl
+      - php7.4-json
+      - php7.4-cgi
+      - php7.4-xsl
+      - php7.4-cgi
+      - php7.4-gd
+      - php7.4-mbstring
+      - php7.4-zip
+      - php7.4-xmlrpc
+      - php7.4-soap
+      - php7.4-intl
+      - libapache2-mod-php
+    service_list:
+      - ufw
+      - nginx
+      - mysql
+
+  tasks:
+
+    - name: "Updating the repo"
+      apt: update_cache=yes
+
+    - name: Install packages
+      package:
+        name: "{{ item }}"
+        state: latest
+      with_items: "{{ package_list }}"
+
+    - name: Make index
+      copy:
+        src: /home/ansible/playbooks/index.php
+        dest: /var/www/html/index.php
+
+    - name: Start Services
+      service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      with_items: "{{ service_list }}"
+
+    - name: Add Firewall Exception
+      ufw:
+        rule: allow
+        port: 80
+
+  handlers:
+    - name: server restart
+      service:
+        name: nginx
+        state: restarted

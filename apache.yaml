@@ -1,0 +1,69 @@
+---
+
+- name: Apache setup
+  hosts: clients-c
+  become: true
+  vars:
+    server: 192.168.20.151
+    link_sql: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+    package_list:
+      - httpd
+      - mysql-server
+      - MySQL-python
+      - php
+      - php-mysql
+    service_list:
+      - firewalld
+      - httpd
+      - mysqld
+
+  tasks:
+    - name: Download sources
+      get_url:
+        url: "{{ link_sql }}"
+        dest: .
+
+    - name: Install package
+      yum:
+        name: ./mysql-community-release-el7-5.noarch.rpm
+        state: latest
+
+    - name: Install packages
+      package:
+        name: "{{ item }}"
+        state: latest
+      with_items: "{{ package_list }}"
+
+    - name: Make index.html
+      copy:
+        src: /home/ansible/playbooks/index.html
+        dest: /var/www/html/index.html
+
+    - name: Configuration of webserver
+      template:
+        src: ./httpd.conf.j2
+        dest: /etc/httpd/conf.d/httpd.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: "server restart"
+
+    - name: Start Services
+      service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      with_items: "{{ service_list }}"
+
+    - name: Add Firewall Exception
+      firewalld:
+        port: 80/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+
+  handlers:
+    - name: server restart
+      service:
+        name: httpd
+        state: restarted

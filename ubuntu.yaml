@@ -1,0 +1,80 @@
+---
+- name: Setup Ubuntu
+  hosts: uc
+  become: true
+  vars:
+    server: 192.168.0.63
+    package_list:
+      - ufw
+      - nginx
+      - mysql-server
+      - php-fpm
+      - php-mysql
+      - python3-pymysql
+    service_list:
+      - ufw
+      - nginx
+      - mysql
+    mysql_root_password: password
+
+  tasks:
+    - name: 'Updating the repo'
+      apt: update_cache=yes
+
+    - name: Install packages
+      package:
+        name: '{{ item }}'
+        state: latest
+      with_items: '{{ package_list }}'
+
+    - name: Make webpage
+      copy:
+        src: /home/ansible/playbooks/index.php
+        dest: /var/www/html/index.php
+
+    - name: Start Services
+      service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+      with_items: '{{ service_list }}'
+
+    - name: Sets Nginx conf file
+      template:
+        src: './nginx.conf.j2'
+        dest: '/etc/nginx/sites-available/default'
+
+    - name: Enables new site
+      file:
+        src: '/etc/nginx/sites-available/default'
+        dest: '/etc/nginx/sites-enabled/default'
+        state: link
+      notify: Reload Nginx
+      
+    - name: MySQL pass setup
+      mysql_user:
+        name: ''
+        user: root
+        password: '{{ mysql_root_password }}'
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Create a new database
+      mysql_db:
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        name: mbdatabase
+        state: present
+
+    - name: Add Firewall Exception
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded

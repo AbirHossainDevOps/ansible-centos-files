@@ -1,0 +1,39 @@
+---
+
+- name: MySQL & HyperText PreProcessor setup
+  hosts: clients-c
+  become: true
+  vars:
+    mysql_user: root
+    mysql_pass: bjit1234
+    package_list:
+      - mysql-server
+      - MySQL-python
+      - php
+  tasks:
+    - name: Download sources
+      get_url:
+        url: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+        dest: .
+
+    - name: Install package
+      yum:
+        name: ./mysql-community-release-el7-5.noarch.rpm
+        state: present
+
+    - name: Install packages
+      package:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ package_list }}"
+
+    - name: Start mysql
+      service:
+        name: mysqld
+        state: started
+
+    - name: Enable mysql
+      service:
+        name: mysqld
+        enabled: true
+        state: started

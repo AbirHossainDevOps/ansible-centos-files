@@ -1,0 +1,82 @@
+---
+- name: Apache setup
+  hosts: cc
+  become: true
+  vars:
+    server: 192.168.0.62
+    link_sql: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+    package_list:
+      - mysql-community-release-el7-5.noarch.rpm
+      - httpd
+      - mysql-server
+      - MySQL-python
+      - php
+      - php-mysql
+    service_list:
+      - firewalld
+      - httpd
+      - mysqld
+    mysql_root_password: password
+
+  tasks:
+    - name: Download sources
+      get_url:
+        url: '{{ link_sql }}'
+        dest: .
+
+    - name: Install packages
+      package:
+        name: '{{ item }}'
+        state: latest
+      with_items: '{{ package_list }}'
+
+    - name: Make webpage
+      copy:
+        src: /home/ansible/playbooks/index.php
+        dest: /var/www/html/index.php
+
+    - name: Configuration of webserver
+      template:
+        src: ./httpd.conf.j2
+        dest: /etc/httpd/conf.d/httpd.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: 'server restart'
+
+    - name: Start Services
+      service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+      with_items: '{{ service_list }}'
+
+    - name: MySQL pass setup
+      mysql_user:
+        name: root
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        user: root
+        check_implicit_admin: true
+        password: '{{ mysql_root_password }}'
+        host: localhost
+
+    - name: Create a new database
+      mysql_db:
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        name: mbdatabase
+        state: present
+
+    - name: Add Firewall Exception
+      firewalld:
+        port: 80/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+
+  handlers:
+    - name: server restart
+      service:
+        name: httpd
+        state: restarted

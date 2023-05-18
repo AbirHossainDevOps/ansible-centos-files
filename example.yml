@@ -1,0 +1,15 @@
+---
+
+- hosts: all
+  tasks:
+  - name: Pinging clients
+    ping:
+  - name: Create a directory
+    file:
+      path: ~/new
+      state: directory
+      mode: 0700
+  - name: Delete a directory
+    file:
+      path: ~/new/
+      state: absent

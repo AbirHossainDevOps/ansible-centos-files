@@ -1,0 +1,161 @@
+---
+
+- name: Playbook to setup Ansible
+  hosts: all
+  become: true
+
+  vars:
+    deb_server: 192.168.20.136
+    cent_server: 192.168.20.151
+    link_sql: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+    deb_package_list:
+      - nginx
+      - mysql-server
+      - php-fpm
+      - php-mysql
+      - python3-pymysql
+    cent_package_list:
+      - mysql-community-release-el7-5.noarch.rpm
+      - httpd
+      - mysql-server
+      - MySQL-python
+      - php
+      - php-mysql
+    deb_service_list:
+      - ufw
+      - nginx
+      - mysql
+    cent_service_list:
+      - firewalld
+      - httpd
+      - mysqld
+    mysql_root_password: password
+
+  tasks:
+    - name: Prime Ubuntu
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
+
+    - name: Prime CentOS
+      get_url:
+        url: '{{ link_sql }}'
+        dest: .
+      when: ansible_os_family == "RedHat"
+
+    - name: Setup Ubuntu
+      package:
+        name: '{{ item }}'
+        state: latest
+      with_items: '{{ deb_package_list }}'
+      when: ansible_os_family == "Debian"
+
+    - name: Setup CentOS
+      package:
+        name: '{{ item }}'
+        state: latest
+      with_items: '{{ cent_package_list }}'
+      when: ansible_os_family == "RedHat"
+
+    - name: Make webpage
+      copy:
+        src: /home/ansible/playbooks/index.php
+        dest: /var/www/html/index.php
+
+    - name: Sets Nginx conf file
+      template:
+        src: './nginx.conf.j2'
+        dest: '/etc/nginx/sites-available/default'
+      when: ansible_os_family == "Debian"
+      notify: nginx restart
+
+    - name: Configuration of centos webserver
+      template:
+        src: ./httpd.conf.j2
+        dest: /etc/httpd/conf.d/httpd.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+      notify: apache restart
+
+    - name: Start Services
+      service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+      with_items: '{{ deb_service_list }}'
+      when: ansible_os_family == "Debian"
+
+    - name: Start Services
+      service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+      with_items: '{{ cent_service_list }}'
+      when: ansible_os_family == "RedHat"
+
+    - name: MySQL pass setup
+      mysql_user:
+        name: ''
+        user: root
+        password: '{{ mysql_root_password }}'
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      when: ansible_os_family == "Debian"
+
+    - name: MySQL pass setup
+      mysql_user:
+        name: root
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        user: root
+        check_implicit_admin: true
+        password: '{{ mysql_root_password }}'
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        host: localhost
+      when: ansible_os_family == "RedHat"
+
+    - name: Create a new database
+      mysql_db:
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        name: mbdatabase
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      when: ansible_os_family == "Debian"
+
+    - name: Create a new database
+      mysql_db:
+        login_user: root
+        login_password: '{{ mysql_root_password }}'
+        name: mbdatabase
+        state: present
+        login_unix_socket: /var/lib/mysql/mysql.sock
+      when: ansible_os_family == "RedHat"
+
+    - name: Add Firewall Exception
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Add Firewall Exception
+      firewalld:
+        port: 80/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+      when: ansible_os_family == "RedHat"
+
+  handlers:
+    - name: nginx restart
+      service:
+        name: nginx
+        state: restarted
+
+    - name: apache restart
+      service:
+        name: httpd
+        state: restarted
