@@ -1,0 +1,11 @@
+link_sql: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+
+mysql: 
+  - mysql-community-release-el7-5.noarch.rpm
+  - mysql-server
+  - MySQL-python
+
+mysql_services:
+  - mysqld
+
+mysql_root_password: password

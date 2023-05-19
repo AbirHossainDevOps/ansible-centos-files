@@ -1,0 +1,39 @@
+- name: Installation in CentOS
+  package:
+    name: '{{ item }}'
+    state: latest
+  loop: '{{ apache }}'
+  when: ansible_os_family == "RedHat"
+
+- name: document root exist
+  file:
+    path: "/var/www/{{ http_host }}"
+    state: directory
+    owner: root
+    mode: '0755'
+
+- name: Configuration of apache server
+  template:
+    src: httpd.conf.j2
+    dest: /etc/httpd/conf.d/httpd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_os_family == "RedHat"
+  notify: apache restart
+
+- name: Start Services
+  service:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: '{{ apache_services }}'
+  when: ansible_os_family == "RedHat"
+
+- name: Add Firewall Exception
+  firewalld:
+    port: 80/tcp
+    permanent: true
+    immediate: true
+    state: enabled
+  when: ansible_os_family == "RedHat"

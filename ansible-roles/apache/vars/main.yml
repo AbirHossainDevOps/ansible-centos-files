@@ -1,0 +1,9 @@
+server: "{{ '192.168.20.151' if ansible_os_family == 'RedHat' else '192.168.20.136' if ansible_os_family == 'Debian' }}"
+http_host: "example.com"
+
+apache:
+  - httpd
+
+apache_services:
+  - firewalld
+  - httpd

@@ -1,0 +1,41 @@
+- name: Download repo file for mysql
+  get_url:
+    url: '{{ link_sql }}'
+    dest: .
+  when: ansible_os_family == "RedHat"
+
+- name: Installation in CentOS
+  package:
+    name: '{{ item }}'
+    state: latest
+  loop: '{{ mysql }}'
+  when: ansible_os_family == "RedHat"
+
+- name: Start Services
+  service:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: '{{ mysql_services }}'
+  when: ansible_os_family == "RedHat"
+
+- name: MySQL pass setup
+  mysql_user:
+    name: root
+    login_user: root
+    login_password: '{{ mysql_root_password }}'
+    user: root
+    check_implicit_admin: true
+    password: '{{ mysql_root_password }}'
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    host: localhost
+  when: ansible_os_family == "RedHat"
+
+- name: Create a new database
+  mysql_db:
+    login_user: root
+    login_password: '{{ mysql_root_password }}'
+    name: mbdatabase
+    state: present
+    login_unix_socket: /var/lib/mysql/mysql.sock
+  when: ansible_os_family == "RedHat"
